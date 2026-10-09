@@ -1,100 +1,126 @@
 # JavaScript documentado
 
-Este arquivo apresenta uma versão comentada do código responsável pela consulta de CEP. O arquivo executado pela aplicação continua limpo em [`script.js`](../script.js).
+Este arquivo apresenta uma versão comentada do código responsável pela consulta de CEP. O código executado pela aplicação permanece limpo em [`script.js`](../script.js).
 
 ## Código comentado
 
 ```javascript
-// Declara uma função assíncrona que recebe o CEP informado pelo usuário.
-async function buscaEndereco(cep) {
-    // Localiza o elemento usado para mostrar mensagens de erro.
-    var mensagemErro = document.getElementById('erro');
-    mensagemErro.innerHTML = "";
+// Seleciona os elementos que serão usados na consulta e no preenchimento do formulário.
+const mensagemErro = document.getElementById("erro");
+const campoCep = document.getElementById("cep");
+const campoEndereco = document.getElementById("endereco");
+const campoBairro = document.getElementById("bairro");
+const campoCidade = document.getElementById("cidade");
+const campoEstado = document.getElementById("estado");
+
+// Limpa os campos preenchidos pela API quando ocorre um erro.
+function limparEndereco() {
+    campoEndereco.value = "";
+    campoBairro.value = "";
+    campoCidade.value = "";
+    campoEstado.value = "";
+}
+
+// Mostra uma mensagem e adiciona a classe visual de erro.
+function exibirErro(mensagem) {
+    mensagemErro.textContent = mensagem;
+    mensagemErro.classList.add("formulario__mensagem--erro");
+}
+
+// Consulta a API ViaCEP e preenche os campos do endereço.
+async function buscarEndereco(cep) {
+    // Remove tudo que não for número.
+    const cepLimpo = cep.replace(/\D/g, "");
+
+    mensagemErro.textContent = "";
+    mensagemErro.classList.remove("formulario__mensagem--erro");
+
+    // Um CEP brasileiro deve possuir exatamente oito números.
+    if (cepLimpo.length !== 8) {
+        limparEndereco();
+        exibirErro("Digite um CEP válido com 8 números.");
+        return;
+    }
 
     try {
-        // Envia uma requisição para a API ViaCEP usando o CEP recebido.
-        var consultaCEP = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+        // Espera a resposta da API antes de continuar.
+        const resposta = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
 
-        // Converte a resposta da API para um objeto JavaScript.
-        var consultaCEPConvertida = await consultaCEP.json();
-
-        // Interrompe a execução quando a API informa que o CEP não existe.
-        if (consultaCEPConvertida.erro) {
-            throw Error('CEP não existente!');
+        // Interrompe a execução se a requisição HTTP falhar.
+        if (!resposta.ok) {
+            throw new Error("Não foi possível consultar o CEP.");
         }
 
-        // Localiza os campos que receberão os dados do endereço.
-        var cidade = document.getElementById('cidade');
-        var logradouro = document.getElementById('endereco');
-        var estado = document.getElementById('estado');
+        // Converte a resposta para um objeto JavaScript.
+        const endereco = await resposta.json();
 
-        // Preenche os campos com os valores retornados pela API.
-        cidade.value = consultaCEPConvertida.localidade;
-        logradouro.value = consultaCEPConvertida.logradouro;
-        estado.value = consultaCEPConvertida.uf;
+        // A ViaCEP usa a propriedade erro quando o CEP não existe.
+        if (endereco.erro) {
+            throw new Error("CEP não encontrado.");
+        }
 
-        console.log(consultaCEPConvertida);
-        return consultaCEPConvertida;
+        // Preenche os campos com os dados retornados.
+        campoEndereco.value = endereco.logradouro;
+        campoBairro.value = endereco.bairro;
+        campoCidade.value = endereco.localidade;
+        campoEstado.value = endereco.uf;
     } catch (erro) {
-        // Exibe uma mensagem quando o CEP é inválido ou a consulta falha.
-        mensagemErro.innerHTML = `<p>CEP inválido. Tente novamente!</p>`;
-        console.log(erro);
+        limparEndereco();
+        exibirErro("CEP não encontrado. Verifique os números e tente novamente.");
+        console.error(erro);
     }
 }
 
-// Localiza o campo de CEP no formulário.
-var cep = document.getElementById('cep');
-
-// Executa a consulta quando o usuário sai do campo de CEP.
-cep.addEventListener("focusout", () => buscaEndereco(cep.value));
+// Faz a consulta quando o usuário sai do campo de CEP.
+campoCep.addEventListener("blur", () => buscarEndereco(campoCep.value));
 ```
 
 ## Principais nomenclaturas
 
-### `async`
+### `const`
 
-Indica que a função realiza uma operação assíncrona e permite o uso de `await` em seu interior.
+Declara uma referência que não será reatribuída durante a execução do código.
 
-### `await`
+### `async` e `await`
 
-Espera a conclusão de uma operação assíncrona antes de continuar a execução daquele trecho da função.
+`async` indica que a função realiza operações assíncronas. `await` espera o resultado de uma dessas operações antes de continuar aquele trecho.
 
 ### `fetch()`
 
-Envia uma requisição HTTP. Neste projeto, é usado para buscar os dados do endereço na API ViaCEP.
+Envia uma requisição HTTP. Neste projeto, busca os dados do endereço na API ViaCEP.
 
-### Template string
+### Expressão regular `/\D/g`
 
-É o texto escrito entre crases. A expressão `${cep}` insere o valor da variável dentro do endereço da API.
+Localiza todos os caracteres que não são números. O método `replace()` os remove antes da consulta.
+
+### `try`, `catch` e `throw`
+
+O `try` contém o código que pode falhar. `throw` lança um erro manualmente e o `catch` executa o tratamento necessário.
 
 ### `.json()`
 
-Converte o corpo da resposta recebida da API para um objeto JavaScript.
-
-### `try` e `catch`
-
-O bloco `try` contém o código que pode gerar um erro. Se isso acontecer, o `catch` recebe o erro e executa o tratamento definido.
-
-### `throw Error()`
-
-Cria e lança manualmente um erro. Aqui, isso ocorre quando a API informa que o CEP não existe.
+Converte o corpo da resposta da API para um objeto JavaScript.
 
 ### `document.getElementById()`
 
 Localiza um elemento do HTML pelo valor do atributo `id`.
 
-### `.value`
+### `.textContent`
 
-Permite ler ou alterar o valor de um campo de formulário.
+Lê ou altera somente o conteúdo textual de um elemento, sem interpretar HTML.
+
+### `.classList.add()` e `.classList.remove()`
+
+Adicionam ou removem classes CSS de um elemento.
 
 ### `addEventListener()`
 
-Registra uma função que será executada quando determinado evento acontecer.
+Registra uma função para responder a um evento do navegador.
 
-### `focusout`
+### `blur`
 
-É disparado quando o usuário retira o foco do campo. Neste projeto, inicia a busca depois que o usuário termina de preencher o CEP.
+É disparado quando o campo perde o foco. Aqui, inicia a consulta depois que o usuário termina de preencher o CEP.
 
 ### Arrow function
 
-A expressão `() =>` é uma forma curta de declarar uma função. Ela chama `buscaEndereco()` passando o CEP digitado.
+A expressão `() =>` é uma forma curta de declarar uma função.
